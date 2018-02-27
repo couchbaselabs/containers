@@ -1,6 +1,7 @@
 # kubernetes controller for applying cluster-admin
 # credentials to couchbase-operator deployments
 import json
+from ruamel import yaml
 import jsonpickle
 from openshift import client, config
 from kubernetes import client as kubeClient, watch
@@ -61,7 +62,6 @@ class SecurityContextConstraintType(object):
     def __init__(self, typ):
         self.type = typ
 
-
 def update_project_scc(project):
     api = client.SecurityOpenshiftIoV1Api()
     scc = SecurityContextConstraints(project)
@@ -82,6 +82,23 @@ def update_project_rbac(project):
         # object exists but it's return value is not parsable
         # this is underlying client bug
         pass
+
+def read_operator_spec(filename):
+    with open(filename, 'r') as fp:
+        read_data = yaml.load(fp)
+        return read_data
+
+# create operator within project if not exists in project
+def create_project_operator(project):
+    api = kubeClient.ExtensionsV1beta1Api()
+    try:
+        resp = api.read_namespaced_deployment("couchbase-operator", project)
+    except kubeClient.rest.ApiException as ex:
+        if ex.reason == 'Not Found':
+            deployment = read_operator_spec("operator.yaml")
+            api.create_namespaced_deployment(project, deployment)
+    except Exception as ex:
+        print ex
 
 def main():
 
@@ -105,6 +122,7 @@ def main():
             try:
                 update_project_scc(project)
                 update_project_rbac(project)
+                create_project_operator(project)
                 print("Set up project: {}!".format(project))
             except Exception as ex:
                 print("Unexpected exception occured: {}".format(ex))
