@@ -6,6 +6,8 @@ RUN git clone git://github.com/couchbase/libcouchbase.git && \
     mkdir libcouchbase/build
 
 WORKDIR libcouchbase/build
+ARG TAG=2.9.3
+RUN git checkout tags/$TAG
 RUN ../cmake/configure --prefix=/usr && \
       make && \
       make install
